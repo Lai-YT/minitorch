@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Optional, Type
+from typing import TYPE_CHECKING, Any, Callable, Optional, Type
 
 import numpy as np
 from typing_extensions import Protocol
 
 from . import operators
 from .tensor_data import (
-    MAX_DIMS,
     broadcast_index,
     index_to_position,
     shape_broadcast,
@@ -230,9 +229,7 @@ class SimpleOps(TensorOps):
 # Implementations.
 
 
-def tensor_map(
-    fn: Callable[[float], float]
-) -> Callable[[Storage, Shape, Strides, Storage, Shape, Strides], None]:
+def tensor_map(fn: Callable[[float], float]) -> Any:
     """
     Low-level implementation of tensor map between
     tensors with *possibly different strides*.
@@ -251,9 +248,15 @@ def tensor_map(
 
     Args:
         fn: function from float-to-float to apply
+        out (array): storage for out tensor
+        out_shape (array): shape for out tensor
+        out_strides (array): strides for out tensor
+        in_storage (array): storage for in tensor
+        in_shape (array): shape for in tensor
+        in_strides (array): strides for in tensor
 
     Returns:
-        Tensor map function.
+        None : Fills in `out`
     """
 
     def _map(
@@ -264,17 +267,27 @@ def tensor_map(
         in_shape: Shape,
         in_strides: Strides,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError('Need to implement for Task 2.3')
+        out_index: Index = np.zeros(len(out_shape), dtype=np.int32)
+        in_index: Index = np.zeros(len(in_shape), dtype=np.int32)
+
+        for i in range(len(out)):
+            # Convert ordinal to index in out_shape
+            to_index(i, out_shape, out_index)
+
+            # Map index to input shape (broadcasting)
+            broadcast_index(out_index, out_shape, in_shape, in_index)
+
+            # Convert indices to storage positions
+            out_pos = index_to_position(out_index, out_strides)
+            in_pos = index_to_position(in_index, in_strides)
+
+            # Apply function
+            out[out_pos] = fn(in_storage[in_pos])
 
     return _map
 
 
-def tensor_zip(
-    fn: Callable[[float, float], float]
-) -> Callable[
-    [Storage, Shape, Strides, Storage, Shape, Strides, Storage, Shape, Strides], None
-]:
+def tensor_zip(fn: Callable[[float, float], float]) -> Any:
     """
     Low-level implementation of tensor zip between
     tensors with *possibly different strides*.
@@ -293,9 +306,18 @@ def tensor_zip(
 
     Args:
         fn: function mapping two floats to float to apply
+        out (array): storage for `out` tensor
+        out_shape (array): shape for `out` tensor
+        out_strides (array): strides for `out` tensor
+        a_storage (array): storage for `a` tensor
+        a_shape (array): shape for `a` tensor
+        a_strides (array): strides for `a` tensor
+        b_storage (array): storage for `b` tensor
+        b_shape (array): shape for `b` tensor
+        b_strides (array): strides for `b` tensor
 
     Returns:
-        Tensor zip function.
+        None : Fills in `out`
     """
 
     def _zip(
@@ -309,15 +331,32 @@ def tensor_zip(
         b_shape: Shape,
         b_strides: Strides,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError('Need to implement for Task 2.3')
+        out_index: Index = np.zeros(len(out_shape), dtype=np.int32)
+        a_index: Index = np.zeros(len(a_shape), dtype=np.int32)
+        b_index: Index = np.zeros(len(b_shape), dtype=np.int32)
+
+        for i in range(len(out)):
+            # Convert ordinal to index in out_shape
+            to_index(i, out_shape, out_index)
+
+            # Map index to a_shape (broadcasting)
+            broadcast_index(out_index, out_shape, a_shape, a_index)
+
+            # Map index to b_shape (broadcasting)
+            broadcast_index(out_index, out_shape, b_shape, b_index)
+
+            # Convert indices to storage positions
+            out_pos = index_to_position(out_index, out_strides)
+            a_pos = index_to_position(a_index, a_strides)
+            b_pos = index_to_position(b_index, b_strides)
+
+            # Apply function
+            out[out_pos] = fn(a_storage[a_pos], b_storage[b_pos])
 
     return _zip
 
 
-def tensor_reduce(
-    fn: Callable[[float, float], float]
-) -> Callable[[Storage, Shape, Strides, Storage, Shape, Strides, int], None]:
+def tensor_reduce(fn: Callable[[float, float], float]) -> Any:
     """
     Low-level implementation of tensor reduce.
 
@@ -326,9 +365,16 @@ def tensor_reduce(
 
     Args:
         fn: reduction function mapping two floats to float
+        out (array): storage for `out` tensor
+        out_shape (array): shape for `out` tensor
+        out_strides (array): strides for `out` tensor
+        a_storage (array): storage for `a` tensor
+        a_shape (array): shape for `a` tensor
+        a_strides (array): strides for `a` tensor
+        reduce_dim (int): dimension to reduce out
 
     Returns:
-        Tensor reduce function.
+        None : Fills in `out`
     """
 
     def _reduce(
@@ -340,8 +386,20 @@ def tensor_reduce(
         a_strides: Strides,
         reduce_dim: int,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError('Need to implement for Task 2.3')
+        out_index: Index = np.zeros(len(out_shape), dtype=np.int32)
+
+        for i in range(len(out)):
+            to_index(i, out_shape, out_index)
+            out_pos = index_to_position(out_index, out_strides)
+
+            # The base position in a is the position corresponding to out_index
+            # (which has 0 at reduce_dim)
+            base_a_pos = index_to_position(out_index, a_strides)
+
+            # Iterate over the reduction dimension
+            for j in range(a_shape[reduce_dim]):
+                a_pos = base_a_pos + j * a_strides[reduce_dim]
+                out[out_pos] = fn(out[out_pos], a_storage[a_pos])
 
     return _reduce
 
