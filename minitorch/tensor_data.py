@@ -148,7 +148,7 @@ class TensorData:
         shape: UserShape,
         strides: Optional[UserStrides] = None,
     ):
-        if isinstance(storage, np.ndarray):
+        if isinstance(storage, np.ndarray) or numba.cuda.is_cuda_array(storage):  # type: ignore
             self._storage = storage
         else:
             self._storage = array(storage, dtype=float64)

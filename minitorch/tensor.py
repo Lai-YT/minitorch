@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
+import numba
 
 from . import operators
 from .autodiff import Context, Variable, backpropagate
@@ -107,7 +108,10 @@ class Tensor:
         Returns:
              Converted to numpy array
         """
-        return self.contiguous()._tensor._storage.reshape(self.shape)
+        storage = self.contiguous()._tensor._storage
+        if numba.cuda.is_cuda_array(storage):  # type: ignore
+            storage = storage.copy_to_host()
+        return storage.reshape(self.shape)
 
     # Properties
     @property
