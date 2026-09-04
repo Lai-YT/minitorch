@@ -1,3 +1,5 @@
+from argparse import ArgumentParser
+
 from mnist import MNIST
 
 import minitorch
@@ -84,7 +86,7 @@ class Network(minitorch.Module):
         self.out = x
         x = minitorch.avgpool2d(x, (4, 4))
         x = self.linear1(x.view(BATCH, 392)).relu()
-        x = minitorch.dropout(x, 0.25, self.mode == "eval")
+        x = minitorch.dropout(x, 0.25, not self.training)
         x = self.linear2(x)
         x = minitorch.logsoftmax(x, dim=1)
         return x
@@ -187,5 +189,21 @@ class ImageTrain:
 
 
 if __name__ == "__main__":
-    data_train, data_val = (make_mnist(0, 5000), make_mnist(10000, 10500))
-    ImageTrain().train(data_train, data_val, learning_rate=0.01)
+    parser = ArgumentParser()
+    parser.add_argument("--train_size", type=int, default=5000)
+    parser.add_argument("--val_start", type=int, default=10000)
+    parser.add_argument("--val_size", type=int, default=500)
+    parser.add_argument("--learning_rate", type=float, default=0.01)
+    parser.add_argument("--max_epochs", type=int, default=500)
+    args = parser.parse_args()
+
+    data_train, data_val = (
+        make_mnist(0, args.train_size),
+        make_mnist(args.val_start, args.val_start + args.val_size),
+    )
+    ImageTrain().train(
+        data_train,
+        data_val,
+        learning_rate=args.learning_rate,
+        max_epochs=args.max_epochs,
+    )
