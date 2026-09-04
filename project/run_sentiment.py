@@ -84,7 +84,7 @@ class CNNSentimentKim(minitorch.Module):
         # Max over each feature map
         x = minitorch.max(x1, 2) + minitorch.max(x2, 2) + minitorch.max(x3, 2)
         x = self.linear(x.view(x.shape[0], self.feature_map_size))
-        x = minitorch.dropout(x, self.dropout, self.mode == "eval")
+        x = minitorch.dropout(x, self.dropout, not self.training)
         # Apply sigmoid and view as batch size
         return x.sigmoid().view(x.shape[0])
         # END ASSIGN4.5
